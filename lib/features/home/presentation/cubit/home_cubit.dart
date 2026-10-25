@@ -11,6 +11,8 @@ import 'home_states.dart';
 
 /// Presentation Logic Holder managing the state of the Home screen
 class HomeCubit extends Cubit<HomeState> {
+  static const int defaultPageSize = 16;
+
   final GetCategoriesUseCase _getCategoriesUseCase;
   final GetAllProductsUseCase _getAllProductsUseCase;
   final GetProductsByCategoryUseCase _getProductsByCategoryUseCase;
@@ -44,13 +46,13 @@ class HomeCubit extends Cubit<HomeState> {
             ),
         super(const HomeInitial());
 
-  /// Load initial categories and products (default filter is "All")
+  /// Load initial categories and products (default filter is "All", limit 16)
   Future<void> loadHomeData() async {
     emit(const HomeLoading());
     try {
       final results = await Future.wait([
         _getCategoriesUseCase(),
-        _getAllProductsUseCase(),
+        _getAllProductsUseCase(limit: defaultPageSize, offset: 0),
       ]);
 
       final apiCategories = results[0] as List<CategoryEntity>;
@@ -65,10 +67,81 @@ class HomeCubit extends Cubit<HomeState> {
           products: products,
           selectedCategory: CategoryEntity.all,
           isProductsLoading: false,
+          isLoadingMore: false,
+          hasReachedMax: products.length < defaultPageSize,
         ),
       );
     } catch (e) {
       emit(HomeError(message: e.toString()));
+    }
+  }
+
+  /// Load the next 16 products for the active category (pagination)
+  Future<void> loadMoreProducts() async {
+    final currentState = state;
+    if (currentState is! HomeLoaded) return;
+    if (currentState.isProductsLoading ||
+        currentState.isLoadingMore ||
+        currentState.hasReachedMax) {
+      return;
+    }
+
+    emit(currentState.copyWith(isLoadingMore: true));
+
+    try {
+      final currentOffset = currentState.products.length;
+      final List<ProductEntity> newProducts;
+      if (currentState.selectedCategory.isAll) {
+        newProducts = await _getAllProductsUseCase(
+          limit: defaultPageSize,
+          offset: currentOffset,
+        );
+      } else {
+        newProducts = await _getProductsByCategoryUseCase(
+          currentState.selectedCategory.id,
+          limit: defaultPageSize,
+          offset: currentOffset,
+        );
+      }
+
+      if (newProducts.isEmpty) {
+        emit(
+          currentState.copyWith(
+            isLoadingMore: false,
+            hasReachedMax: true,
+          ),
+        );
+      } else {
+        emit(
+          currentState.copyWith(
+            products: [...currentState.products, ...newProducts],
+            isLoadingMore: false,
+            hasReachedMax: newProducts.length < defaultPageSize,
+          ),
+        );
+      }
+    } catch (e) {
+      emit(currentState.copyWith(isLoadingMore: false));
+    }
+  }
+
+  /// Fetch a paginated batch of products
+  Future<List<ProductEntity>> fetchProductsPage({
+    required int offset,
+    int limit = defaultPageSize,
+    int? categoryId,
+  }) async {
+    final targetCategoryId = categoryId ??
+        (state is HomeLoaded ? (state as HomeLoaded).selectedCategory.id : 0);
+
+    if (targetCategoryId == 0) {
+      return _getAllProductsUseCase(limit: limit, offset: offset);
+    } else {
+      return _getProductsByCategoryUseCase(
+        targetCategoryId,
+        limit: limit,
+        offset: offset,
+      );
     }
   }
 
@@ -89,16 +162,23 @@ class HomeCubit extends Cubit<HomeState> {
     emit(
       currentState.copyWith(
         selectedCategory: category,
+        products: [],
         isProductsLoading: true,
+        isLoadingMore: false,
+        hasReachedMax: false,
       ),
     );
 
     try {
       final List<ProductEntity> products;
       if (category.isAll) {
-        products = await _getAllProductsUseCase();
+        products = await _getAllProductsUseCase(limit: defaultPageSize, offset: 0);
       } else {
-        products = await _getProductsByCategoryUseCase(category.id);
+        products = await _getProductsByCategoryUseCase(
+          category.id,
+          limit: defaultPageSize,
+          offset: 0,
+        );
       }
 
       emit(
@@ -106,6 +186,8 @@ class HomeCubit extends Cubit<HomeState> {
           selectedCategory: category,
           products: products,
           isProductsLoading: false,
+          isLoadingMore: false,
+          hasReachedMax: products.length < defaultPageSize,
         ),
       );
     } catch (e) {
@@ -115,6 +197,8 @@ class HomeCubit extends Cubit<HomeState> {
           selectedCategory: category,
           products: [],
           isProductsLoading: false,
+          isLoadingMore: false,
+          hasReachedMax: true,
         ),
       );
     }

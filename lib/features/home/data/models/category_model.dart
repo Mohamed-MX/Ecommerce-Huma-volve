@@ -11,11 +11,27 @@ class CategoryModel extends CategoryEntity {
 
   /// Factory constructor to create a [CategoryModel] from JSON
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
+    final rawId = json['id'] is int
+        ? json['id'] as int
+        : int.tryParse(json['id']?.toString() ?? '') ?? 0;
+    var rawName = json['name']?.toString() ?? '';
+    final lower = rawName.trim().toLowerCase();
+
+    // Platzi Fake Store API public users often rename Category 1 ("Clothes")
+    // to test values like "Updated Category Name", "updated categorie name", etc.
+    if (lower.contains('updated categor') ||
+        lower.contains('updated categorie') ||
+        (rawId == 1 &&
+            (lower.contains('update') ||
+                lower.contains('ctg') ||
+                lower == 'change title' ||
+                lower.isEmpty))) {
+      rawName = 'Clothes';
+    }
+
     return CategoryModel(
-      id: json['id'] is int
-          ? json['id'] as int
-          : int.tryParse(json['id']?.toString() ?? '') ?? 0,
-      name: json['name']?.toString() ?? '',
+      id: rawId,
+      name: rawName,
       image: json['image']?.toString() ?? '',
     );
   }

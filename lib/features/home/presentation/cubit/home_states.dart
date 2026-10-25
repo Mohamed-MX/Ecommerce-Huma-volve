@@ -22,12 +22,16 @@ class HomeLoaded extends HomeState {
   final List<ProductEntity> products;
   final CategoryEntity selectedCategory;
   final bool isProductsLoading;
+  final bool isLoadingMore;
+  final bool hasReachedMax;
 
   const HomeLoaded({
     required this.categories,
     required this.products,
     required this.selectedCategory,
     this.isProductsLoading = false,
+    this.isLoadingMore = false,
+    this.hasReachedMax = false,
   });
 
   HomeLoaded copyWith({
@@ -35,12 +39,16 @@ class HomeLoaded extends HomeState {
     List<ProductEntity>? products,
     CategoryEntity? selectedCategory,
     bool? isProductsLoading,
+    bool? isLoadingMore,
+    bool? hasReachedMax,
   }) {
     return HomeLoaded(
       categories: categories ?? this.categories,
       products: products ?? this.products,
       selectedCategory: selectedCategory ?? this.selectedCategory,
       isProductsLoading: isProductsLoading ?? this.isProductsLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasReachedMax: hasReachedMax ?? this.hasReachedMax,
     );
   }
 }

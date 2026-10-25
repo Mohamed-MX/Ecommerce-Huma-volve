@@ -28,6 +28,26 @@ void main() {
       expect(cat.isAll, isFalse);
     });
 
+    test('CategoryModel sanitizes vandalized category names to Clothes', () {
+      final json1 = {
+        'id': 1,
+        'name': 'Updated Category Name',
+        'image': 'https://placeimg.com/640/480/any',
+      };
+      final cat1 = CategoryModel.fromJson(json1);
+      expect(cat1.id, 1);
+      expect(cat1.name, 'Clothes');
+
+      final json2 = {
+        'id': 1,
+        'name': 'updated categorie name',
+        'image': 'https://placeimg.com/640/480/any',
+      };
+      final cat2 = CategoryModel.fromJson(json2);
+      expect(cat2.id, 1);
+      expect(cat2.name, 'Clothes');
+    });
+
     test('ProductModel sanitizes escaped JSON image strings', () {
       final json = {
         'id': 10,
@@ -184,6 +204,45 @@ void main() {
       expect(filteredState.products.length, 1);
       expect(filteredState.products.first.title, 'Category 1 Item');
       expect(lastRequestedPath, contains('/categories/1/products'));
+    });
+
+    test('HomeCubit fetchProductsPage requests correct offset and limit', () async {
+      int? requestedLimit;
+      int? requestedOffset;
+
+      final dio = Dio();
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requestedLimit = options.queryParameters['limit'] as int?;
+            requestedOffset = options.queryParameters['offset'] as int?;
+            return handler.resolve(
+              Response(
+                requestOptions: options,
+                statusCode: 200,
+                data: [
+                  {
+                    'id': 301,
+                    'title': 'Page Item',
+                    'price': 20.0,
+                    'description': 'Item description',
+                    'images': ['https://example.com/p.png'],
+                  },
+                ],
+              ),
+            );
+          },
+        ),
+      );
+
+      final apiClient = ApiClient(dio: dio);
+      final homeService = HomeService(apiClient: apiClient);
+      final cubit = HomeCubit(homeService: homeService);
+
+      final items = await cubit.fetchProductsPage(offset: 16, limit: 16);
+      expect(items.length, 1);
+      expect(requestedOffset, 16);
+      expect(requestedLimit, 16);
     });
   });
 }

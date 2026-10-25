@@ -6,6 +6,8 @@ import 'package:ecommerce_app_huma_volve/features/home/domain/usecases/get_categ
 import 'package:ecommerce_app_huma_volve/features/home/domain/usecases/get_products_by_category_usecase.dart';
 import 'package:ecommerce_app_huma_volve/features/home/presentation/cubit/home_cubit.dart';
 import 'package:ecommerce_app_huma_volve/features/home/presentation/cubit/home_states.dart';
+import 'package:ecommerce_app_huma_volve/features/home/presentation/widgets/category_chip.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class MockHomeRepository implements HomeRepository {
@@ -128,6 +130,44 @@ void main() {
       final filteredState = cubit.state as HomeLoaded;
       expect(filteredState.selectedCategory.id, 2);
       expect(filteredState.products.first.title, 'Sneakers');
+    });
+
+    test('HomeCubit fetchProductsPage calls repository with offset and limit', () async {
+      final cubit = HomeCubit(
+        getCategoriesUseCase: getCategoriesUseCase,
+        getAllProductsUseCase: getAllProductsUseCase,
+        getProductsByCategoryUseCase: getProductsByCategoryUseCase,
+      );
+
+      final products = await cubit.fetchProductsPage(offset: 16, limit: 16);
+      expect(products.length, 1);
+      expect(products.first.title, 'T-Shirt');
+
+      final categoryProducts = await cubit.fetchProductsPage(
+        offset: 16,
+        limit: 16,
+        categoryId: 2,
+      );
+      expect(categoryProducts.length, 1);
+      expect(categoryProducts.first.title, 'Sneakers');
+    });
+
+    testWidgets('CategoryChip displays Clothes when label is Updated Category Name',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CategoryChip(
+              label: 'Updated Category Name',
+              isSelected: false,
+              onTap: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Clothes'), findsOneWidget);
+      expect(find.text('Updated Category Name'), findsNothing);
     });
   });
 }
